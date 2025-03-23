@@ -46,8 +46,12 @@ export function useWebSocket(
       socket.close();
     }
 
+    // Make sure token is properly encoded
+    const encodedToken = encodeURIComponent(token);
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?token=${token}`;
+    const wsUrl = `${protocol}//${window.location.host}/ws?token=${encodedToken}`;
+    
+    console.log('Connecting to WebSocket...'); 
     const newSocket = new WebSocket(wsUrl);
 
     newSocket.onopen = () => {
@@ -97,9 +101,26 @@ export function useWebSocket(
   const sendMessage = useCallback(
     (data: any) => {
       if (socket && socket.readyState === WebSocket.OPEN) {
+        console.log('Sending WebSocket message:', data);
         socket.send(JSON.stringify(data));
       } else {
-        console.error('Cannot send message: WebSocket is not connected');
+        console.error('Cannot send message: WebSocket is not connected', {
+          socketExists: !!socket,
+          readyState: socket?.readyState,
+          expectedReadyState: WebSocket.OPEN
+        });
+        
+        // If socket exists but is in CONNECTING state, queue the message to try again
+        if (socket && socket.readyState === WebSocket.CONNECTING) {
+          console.log('Socket is connecting, will try to send message when connected');
+          // Try again after a short delay
+          setTimeout(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+              console.log('Now connected, sending delayed message');
+              socket.send(JSON.stringify(data));
+            }
+          }, 1000);
+        }
       }
     },
     [socket]

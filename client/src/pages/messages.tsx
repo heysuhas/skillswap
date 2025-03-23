@@ -51,8 +51,17 @@ export default function Messages() {
   // WebSocket connection
   const { sendMessage, isConnected } = useWebSocket({
     onMessage: (data) => {
-      if (data.type === 'message' && data.message.matchId.toString() === id) {
-        setMessages((prev) => [...prev, data.message]);
+      if (data.type === 'message' && data.message && data.message.matchId.toString() === id) {
+        console.log('Received WebSocket message:', data);
+        setMessages((prev) => {
+          if (!prev.some(m => m.id === data.message.id)) {
+            return [...prev, data.message];
+          }
+          return prev;
+        });
+      } else if (data.type === 'message_sent') {
+        console.log('Message sent confirmation received:', data);
+        queryClient.invalidateQueries({ queryKey: [`/api/matches/${id}/messages`] });
       }
     },
   });
@@ -87,14 +96,32 @@ export default function Messages() {
       messageType?: string,
       mediaUrl?: string | null 
     }) => {
-      return await apiRequest('POST', `/api/matches/${matchId}/messages`, { 
-        content, messageType, mediaUrl 
+      console.log('Sending message via API:', { matchId, content, messageType, mediaUrl, userId: user?.id });
+      const response = await apiRequest('POST', `/api/matches/${matchId}/messages`, { 
+        content, 
+        messageType, 
+        mediaUrl,
+        userId: user?.id
       });
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Message sent successfully via API, with data:', data);
+      
+      if (data && !messages.some((m: any) => m.id === data.id)) {
+        setMessages((prev) => [...prev, {
+          ...data,
+          sender: {
+            id: user?.id,
+            username: user?.username
+          }
+        }]);
+      }
+      
       queryClient.invalidateQueries({ queryKey: [`/api/matches/${id}/messages`] });
     },
     onError: (error: any) => {
+      console.error('Message error details:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to send message",
@@ -106,9 +133,18 @@ export default function Messages() {
   // Update messages when data changes
   useEffect(() => {
     if (messageData) {
-      setMessages(messageData);
+      console.log('Message data received from API:', messageData);
+      
+      const existingMessageIds = new Set(messages.map(m => m.id));
+      const newMessages = messageData.filter(m => !existingMessageIds.has(m.id));
+      
+      if (newMessages.length > 0) {
+        setMessages(prev => [...prev, ...newMessages]);
+      } else if (messages.length === 0 && messageData.length > 0) {
+        setMessages(messageData);
+      }
     }
-  }, [messageData]);
+  }, [messageData, messages]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -236,30 +272,41 @@ export default function Messages() {
         mediaUrl = await uploadFile(recordingBlob);
       }
       
-      // Send through API
-      sendMessageMutation.mutate({ 
+      console.log('Preparing to send message:', { content, matchId: id, type: activeMessageType });
+      
+      // Get the current message text before clearing it
+      const messageToBeSent = content;
+      
+      // Reset state immediately to prevent double sends
+      setMessage("");
+      setSelectedFile(null);
+      setMediaPreview(null);
+      setRecordingBlob(null);
+      
+      // Send through API first to ensure it's saved
+      const result = await sendMessageMutation.mutateAsync({ 
         matchId: id, 
-        content,
+        content: messageToBeSent,
         messageType: activeMessageType,
         mediaUrl
       });
       
-      // Also send through WebSocket for real-time display
+      console.log('API message result:', result);
+      
+      // Only send WebSocket message if API call succeeded
       if (isConnected) {
+        console.log('Sending message via WebSocket');
         sendMessage({
           type: 'message',
           matchId: parseInt(id),
-          content,
+          userId: user?.id,
+          content: messageToBeSent,
           messageType: activeMessageType,
           mediaUrl
         });
       }
       
-      // Reset state
-      setMessage("");
-      setSelectedFile(null);
-      setMediaPreview(null);
-      setRecordingBlob(null);
+      // Reset message type after successful send
       setActiveMessageType('text');
       
       // Reset file input if it exists
