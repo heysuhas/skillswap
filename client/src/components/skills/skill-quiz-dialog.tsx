@@ -45,7 +45,11 @@ export function SkillQuizDialog({ open, onOpenChange, skill }: SkillQuizDialogPr
   // Submit quiz attempt
   const submitQuizMutation = useMutation({
     mutationFn: async ({ quizId, score, passed }: { quizId: number, score: number, passed: boolean }) => {
-      return await apiRequest('POST', `/api/quizzes/${quizId}/attempt`, { score, passed });
+      return await apiRequest('POST', `/api/quizzes/${quizId}/attempt`, { 
+        score, 
+        passed,
+        userId: skill?.userId
+      });
     },
     onSuccess: () => {
       if (quizPassed) {
