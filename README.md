@@ -20,5 +20,3 @@ Run the development server:
 npm run dev
 ```
 
-Now you're ready to go! 🚀
-
