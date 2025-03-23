@@ -1,0 +1,47 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for audio player */
+.custom-audio-player {
+  border-radius: 0.5rem;
+  border: none;
+  background-color: transparent;
+}
+
+.custom-audio-player::-webkit-media-controls-panel {
+  background-color: transparent;
+}
+
+.custom-audio-player::-webkit-media-controls-play-button {
+  background-color: rgba(var(--primary), 0.1);
+  border-radius: 50%;
+  color: rgb(var(--primary));
+}
+
+.custom-audio-player::-webkit-media-controls-current-time-display,
+.custom-audio-player::-webkit-media-controls-time-remaining-display {
+  color: #64748b;
+}
+
+/* Mobile responsiveness improvements */
+@media (max-width: 640px) {
+  .message-container {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  
+  .message-bubble {
+    max-width: 85%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
