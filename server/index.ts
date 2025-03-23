@@ -6,6 +6,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Add explicit handler for favicon.ico to prevent 502 errors
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end(); // No content response
+});
+
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
